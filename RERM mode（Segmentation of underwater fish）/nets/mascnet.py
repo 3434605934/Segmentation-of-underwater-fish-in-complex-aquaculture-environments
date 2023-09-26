@@ -1,0 +1,73 @@
+import torch
+import torch.nn as nn
+import math
+
+class AttentionModule(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.conv0 = nn.Conv2d(dim, dim, 5, padding=2, groups=dim)
+        self.conv0_1 = nn.Conv2d(dim, dim, (1, 7), padding=(0, 3), groups=dim)
+        self.conv0_2 = nn.Conv2d(dim, dim, (7, 1), padding=(3, 0), groups=dim)
+
+        self.conv1_1 = nn.Conv2d(dim, dim, (1, 11), padding=(0, 5), groups=dim)
+        self.conv1_2 = nn.Conv2d(dim, dim, (11, 1), padding=(5, 0), groups=dim)
+
+        self.conv2_1 = nn.Conv2d(dim, dim, (1, 21), padding=(0, 10), groups=dim)
+        self.conv2_2 = nn.Conv2d(dim, dim, (21, 1), padding=(10, 0), groups=dim)
+        self.conv3 = nn.Conv2d(dim, dim, 1)
+
+    def forward(self, x):
+        print(x.shape)
+        u = x.clone()
+        print(u.shape)
+        attn = self.conv0(x)
+        print(attn.shape)
+
+        attn_0 = self.conv0_1(attn)
+        print("attn_0", attn_0.shape)
+        attn_0 = self.conv0_2(attn_0)
+        print("attn_0", attn_0.shape)
+
+        attn_1 = self.conv1_1(attn)
+        print("attn_1", attn_1.shape)
+        attn_1 = self.conv1_2(attn_1)
+        print("attn_1", attn_1.shape)
+
+        attn_2 = self.conv2_1(attn)
+        print("attn_2", attn_2.shape)
+        attn_2 = self.conv2_2(attn_2)
+        print("attn_2", attn_2.shape)
+        attn = attn + attn_0 + attn_1 + attn_2
+        print("attn", attn.shape)
+
+        attn = self.conv3(attn)
+
+        return attn * u
+
+
+
+class SpatialAttention(nn.Module):
+    def __init__(self, d_model):
+        super().__init__()
+        self.d_model = d_model
+        self.proj_1 = nn.Conv2d(d_model, d_model, 1)
+        self.activation = nn.GELU()
+        self.spatial_gating_unit = AttentionModule(d_model)
+        self.proj_2 = nn.Conv2d(d_model, d_model, 1)
+
+    def forward(self, x):
+        shorcut = x.clone()
+        x = self.proj_1(x)
+        x = self.activation(x)
+        x = self.spatial_gating_unit(x)
+        x = self.proj_2(x)
+        x = x + shorcut
+        return x
+
+
+if __name__ == '__main__':
+    input = torch.randn(3, 320, 32, 32)
+    acmix = AttentionModule(dim=320)
+    print(acmix)
+    output = acmix(input)
+    print(output.shape)
